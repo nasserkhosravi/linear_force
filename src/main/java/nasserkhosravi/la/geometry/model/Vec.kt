@@ -6,11 +6,9 @@ open class Vec() : MatAbstract() {
     companion object {
         fun plusArray(list: ArrayList<Vec>, size: Int): Array<Double> {
             val res = Array(size) { 0.0 }
-            var counter = 0
-            list.forEach {
+            list.forEachIndexed { index,it->
                 it.data.forEach {
-                    res[counter] = it
-                    counter++
+                    res[index] = it
                 }
             }
             return res
@@ -18,6 +16,7 @@ open class Vec() : MatAbstract() {
 
         //sum all elements
         fun sumUp(v1: Vec): Double {
+            //todo: use reduce
             var result = 0.0
             v1.data.forEach {
                 result += (it)

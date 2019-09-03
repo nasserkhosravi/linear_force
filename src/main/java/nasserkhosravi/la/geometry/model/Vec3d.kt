@@ -1,6 +1,7 @@
 package nasserkhosravi.la.geometry.model
 
 class Vec3d() : Vec() {
+
     companion object {
         fun magnitude(v: Vec3d): Double {
             return Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
