@@ -28,23 +28,19 @@ class Vec3d() : Vec() {
     }
 
     init {
-        data = arrayOf(0.0, 0.0, 0.0)
+        data = DoubleArray(3) { 0.0 }
     }
 
-    constructor(data: Array<Double>) : this() {
-        if (data.size > 3) {
-            throw IllegalArgumentException("data has more than 3 member")
-        }
+    constructor(data: DoubleArray) : this() {
+        require(data.size <= 3) { "data has more than 3 member" }
         this.data = data
     }
 
     constructor(x: Double, y: Double, z: Double) : this() {
-        data = arrayOf(x, y, z)
+        data = doubleArrayOf(x, y, z)
     }
 
-    constructor(x: Int, y: Int, z: Int) : this() {
-        data = arrayOf(x.toDouble(), y.toDouble(), z.toDouble())
-    }
+    constructor(x: Int, y: Int, z: Int) : this(x.toDouble(), y.toDouble(), z.toDouble())
 
     fun xyz(x: Double, y: Double, z: Double) {
         data[0] = x
@@ -52,17 +48,11 @@ class Vec3d() : Vec() {
         data[2] = z
     }
 
-    fun x(): Double {
-        return data[0]
-    }
+    fun x() = data[0]
 
-    fun y(): Double {
-        return data[1]
-    }
+    fun y() = data[1]
 
-    fun z(): Double {
-        return data[2]
-    }
+    fun z() = data[2]
 
     fun x(x: Double) {
         data[0] = x

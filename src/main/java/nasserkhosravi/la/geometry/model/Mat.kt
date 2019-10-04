@@ -1,83 +1,201 @@
 package nasserkhosravi.la.geometry.model
 
-open class Mat private constructor() : MatAbstract() {
+import nasserkhosravi.la.geometry.MatOp
+import nasserkhosravi.la.geometry.OneDimIterator
+import nasserkhosravi.la.geometry.create1dMat
+import nasserkhosravi.la.geometry.isPositive
+import org.la4j.Matrix
+import java.text.NumberFormat
 
-    private var rows: Int = 0
-    private var cols: Int = 0
+/**
+ * Dense row-major matrix that store data in one array
+ *
+ * @see https://en.wikipedia.org/wiki/Row-_and_column-major_order
+ */
+open class Mat : BaseMat() {
 
-    fun setSize(rowSize: Int, colSize: Int) {
-        this.rows = rowSize
-        this.cols = colSize
+    override fun iterator() = OneDimIterator(data)
+
+    override var rowSize: Int = 0
+    override var colSize: Int = 0
+
+    lateinit var data: DoubleArray
+
+    operator fun get(v: Int) = data[v]
+
+    operator fun set(i: Int, value: Double) {
+        data[i] = value
     }
 
-    fun at(row: Int, col: Int): Double {
-        return data[row * rows + col]
+    override fun at(row: Int, col: Int) = data[row  * colSize + col]
+
+    override fun setAt(row: Int, col: Int, value: Double) {
+        data[row * rowSize + col] = value
     }
 
-    fun printData() {
-        var colIndex = 0
-        for (i in 0 until data.size) {
-            print("${data[i]}  ")
-            val isOnLastColumn = (i + 1) / (cols) == 1 + colIndex
-            if (isOnLastColumn) {
-                println()
-                colIndex++
-            }
-        }
-    }
+    override fun col(index: Int): Vec {
+        val array = Array(rowSize) { 0.00 }
+        val stepSize = colSize
 
-    fun col(index: Int): Vec {
-        val array = Array(rows) { 0.00 }
-        var counterArray = 0
-        for (i in 0 until rows) {
-            val d = data[index + (i * cols)]
-            array[counterArray] = d
-            counterArray++
-        }
-        return Vec(array)
-    }
-
-    fun row(index: Int): Vec {
-        val startIndex = cols * index
-        val endIndex = startIndex + cols - 1
-
-        val array = Array(cols) { 0.00 }
-        var counterArray = 0
-        for (i in startIndex..endIndex) {
-            array[counterArray] = data[i]
-            counterArray++
+        for ((counter, elementIndex) in (index until data.size step stepSize).withIndex()) {
+            array[counter] = data[elementIndex]
         }
         return Vec(array)
     }
 
-    fun isSquare(): Boolean {
-        return rows == cols
+    override fun row(index: Int): Vec {
+        val startIndex = colSize * index
+        val endIndex = startIndex + colSize - 1
+
+        val array = Array(colSize) { 0.00 }
+        for ((counter, i) in (startIndex..endIndex).withIndex()) {
+            array[counter] = data[i]
+        }
+        return Vec(array)
     }
 
-    fun setCol(index: Int, v: Vec) {
-        for (i in 0 until rows) {
-            val indexData = index + (i * cols)
+    override fun setCol(index: Int, v: Vec) {
+        for (i in 0 until rowSize) {
+            val indexData = index + (i * colSize)
             data[indexData] = v[i]
         }
     }
 
-    fun at(s: Char): Double {
-        val ascii = s.toInt() - 97
-        return data[ascii]
+    override fun setRow(index: Int, v: Vec) {
+        for (i in 0 until colSize) {
+            val from = (index * rowSize) + i
+            data[from] = v[i]
+        }
     }
 
-    companion object {
+    /**
+     * easy access to matrix elements
+     * If you assume first row as 10 and second row as 20 then we can access to elements as following
+     * [ a11,a12,a13
+     *   a21,a22,a23 ]
+     */
+    fun atRowCol(index: Int): Double {
+        val isValid = index < 11 || index > 99
+        require(!isValid)
+        val row = index / 10
+        val col = index % 10
+        return at(row - 1, col - 1)
+    }
 
-        fun arrayOfDuble(vararg e: Int): Array<Double> {
-            return Array(e.size) { e[it].toDouble() }
+    fun swapRow(fromIndex: Int, toIndex: Int) {
+        val from = row(fromIndex)
+        val to = row(toIndex)
+
+        setRow(toIndex, from)
+        setRow(fromIndex, to)
+    }
+
+    fun swapCol(fromIndex: Int, toIndex: Int) {
+        val from = col(fromIndex)
+        val to = col(toIndex)
+
+        setCol(toIndex, from)
+        setCol(fromIndex, to)
+    }
+
+    fun allRows(): ArrayList<Vec> {
+        val result = ArrayList<Vec>(rowSize)
+        for (i in 0 until rowSize) {
+            result.add(row(i))
         }
+        return result
+    }
 
-        fun constructForEigenLib(m: Mat): String {
+    fun allCols(): ArrayList<Vec> {
+        val result = ArrayList<Vec>(colSize)
+        for (i in 0 until colSize) {
+            result.add(col(i))
+        }
+        return result
+    }
+
+    fun subMat(fromRow: Int, fromCol: Int, untilRow: Int, untilCol: Int) {
+        //todo: take a look atRowCol square()
+    }
+
+    fun square(): Mat {
+        val minSideSize = getMinSideSize()
+        val values = ArrayList<Double>(minSideSize * minSideSize)
+        for (i in 0 until minSideSize) {
+            val row = row(i)
+            for (j in 0 until minSideSize) {
+                values.add(row.data[j])
+            }
+        }
+        return create1dMat(minSideSize, minSideSize, values.toTypedArray().toDoubleArray())
+    }
+
+    fun power(pow: Int): Mat {
+
+        require(pow.isPositive())
+        return when (pow) {
+            0 -> eye(rowSize)
+            1 -> this.copy()
+            else -> {
+                var mat = MatOp.multiply(this, this)
+                for (i in 2 until pow) {
+                    mat = MatOp.multiply(mat, this)
+                }
+                mat
+            }
+        }
+    }
+
+    override fun createSelf(rowSize: Int, colSize: Int, result: DoubleArray): BaseMat {
+        return create1dMat(rowSize, colSize, result)
+    }
+
+    fun copy(): Mat {
+        return create1dMat(rowSize, colSize, data.clone())
+    }
+
+    override fun toPretty(numberFormat: NumberFormat?): String {
+        val builder = StringBuilder()
+        var colIndex = 0
+        for (i in data.indices) {
+            if (numberFormat != null) {
+                builder.append("${numberFormat.format(data[i])}  ")
+            } else {
+                builder.append("${data[i]}  ")
+            }
+
+
+            val isOnLastColumn = (i + 1) / (colSize) == 1 + colIndex
+            if (isOnLastColumn) {
+                builder.appendln()
+                colIndex++
+            }
+        }
+        return builder.toString()
+    }
+
+    fun to2DArray(): Array<Array<Double>> {
+        val array = Array(rowSize) {
+            Array(colSize) { 0.0 }
+        }
+        array.forEachIndexed { index, doubles ->
+            row(index).data.forEachIndexed { index, value ->
+                doubles[index] = value
+            }
+        }
+        return array
+    }
+
+    fun toLA4j() = Matrix.from1DArray(rowSize, colSize, data)
+
+    companion object {
+        //todo: move to matrix creation package
+        fun toEigenLibMat(m: Mat): String {
             var colIndex = 0
             val res = StringBuilder()
-            for (i in 0 until m.data.size) {
+            for (i in m.data.indices) {
                 res.append("${m.data[i]}  ")
-                val isOnLastColumn = (i + 1) / (m.cols) == 1 + colIndex
+                val isOnLastColumn = (i + 1) / (m.colSize) == 1 + colIndex
                 if (isOnLastColumn) {
                     res.append(";")
                     colIndex++
@@ -86,16 +204,16 @@ open class Mat private constructor() : MatAbstract() {
             return res.toString()
         }
 
-        fun to2DiscontinueArray(m: Mat): Array<DoubleArray> {
+        fun to2dDoubleArray(m: Mat): Array<DoubleArray> {
             var colIndex = 0
             var rowIndex = 0
             var endIndex = 0
-            val res = Array<DoubleArray>(m.rows) {
-                DoubleArray(m.cols) { 0.0 }
+            val res = Array(m.rowSize) {
+                DoubleArray(m.colSize) { 0.0 }
             }
             for (i in 0 until m.data.size) {
                 res[rowIndex][colIndex] = m.data[i]
-                val isOnLastColumn = (i + 1) / (m.cols) == 1 + endIndex
+                val isOnLastColumn = (i + 1) / (m.colSize) == 1 + endIndex
                 colIndex++
                 if (isOnLastColumn) {
                     endIndex++
@@ -106,101 +224,45 @@ open class Mat private constructor() : MatAbstract() {
             return res
         }
 
-        fun create(rowSize: Int, colSize: Int, data: Array<Double>): Mat {
-            val tMat = Mat()
-            tMat.data = (data)
-            tMat.setSize(rowSize, colSize)
-            return tMat
+
+        fun createEmpty(rowSize: Int, colSize: Int): Mat {
+            val array = DoubleArray(rowSize * colSize)
+            return create1dMat(rowSize, colSize, array)
         }
 
-        fun scale(mat: MatAbstract, scalar: Int) {
-            val data = mat.data
-            for (i in 0 until data.size) {
-                data[i] = scalar * data[i]
-            }
-        }
-
-        fun add(m0: Mat, m1: Mat, mOut: Mat) {
-            assertSameSize(m0, m1)
-            val size = m0.data.size
+        fun eye(size: Int): Mat {
+            require(size > 0)
+            val pattern = size + 1
+            val data = DoubleArray(size * size)
             for (i in 0 until size) {
-                mOut[i] = m0[i] + m1[i]
+                data[pattern * i] = 1.0
+            }
+            return create1dMat(size, size, data)
+        }
+
+        fun assertMultiplySize(m1: Mat, m2: Mat) {
+            if (m1.colSize != m2.rowSize) {
+                throw IllegalArgumentException("Matrices is not multiply able because m1.colSize != m2.rowSize : ${m1.colSize} != ${m2.rowSize}")
             }
         }
 
-        //you should check also mOut matrix size
-        fun sub(m0: Mat, m1: Mat, mOut: Mat) {
-            assertSameSize(m0, m1)
-            val size = m0.data.size
-            for (i in 0 until size) {
-                mOut[i] = m0[i] - m1[i]
-            }
-        }
-
-        fun multiply(m1: Mat, m2: Mat): Mat {
-            assertMultiplySize(m1, m2)
-            val result = Array(m1.rows * m2.cols) { 0.0 }
-            for (i in 0 until m1.rows) {
-                val m1Row = m1.row(i)
-                for (j in 0 until m2.cols) {
-                    val m2Col = m2.col(j)
-                    result[i * m1.rows + j] = (m1Row * m2Col).sumUp()
-                }
-            }
-            return create(m1.rows, m2.cols, result)
-        }
-
-        fun transpose(m0: Mat) {
-            val data = Array(m0.data.size) { 0.0 }
-            val mOut = create(m0.cols, m0.rows, data)
-            for (i in 0 until m0.rows) {
-                val r = m0.row(i)
-                mOut.setCol(i, r)
-            }
-
-            mOut.printData()
-        }
-
-        fun det2x2(m: Mat): Double {
-            assertIsSquare(m)
-            assertSizeIs(m, 2)
-            return (m.at('a') * m.at('d')) - (m.at('b') * m.at('c'))
-        }
-
-        fun det3x3(m: Mat): Double {
-            assertIsSquare(m)
-            assertSizeIs(m, 3)
-            val a = m.at('a') * (m.at('e') * m.at('i') - (m.at('f') * m.at('h')))
-            val b = m.at('b') * (m.at('d') * m.at('i') - (m.at('f') * m.at('g')))
-            val c = m.at('c') * (m.at('d') * m.at('h') - (m.at('e') * m.at('g')))
-            return a - b + c
-        }
-
-        private fun assertMultiplySize(m1: Mat, m2: Mat) {
-            if (m1.cols != m2.rows) {
-                throw IllegalArgumentException("Matrices is not multiply able because m1.cols != m2.rows : ${m1.cols} != ${m2.rows}")
-            }
-        }
-
-        private fun assertIsSquare(m: Mat) {
+        fun assertIsSquare(m: Mat) {
             if (!m.isSquare()) {
-                throw AssertionError("Mat is not square rows=$m.rows cols=$m.cols")
+                throw AssertionError("Mat is not square rowSize=$m.rowSize colSize=$m.colSize")
             }
         }
 
-        private fun assertSameSize(m0: Mat, m1: Mat) {
-            if (m0.rows != m1.rows) {
-                throw AssertionError("Mat size are not same m0.rows != m1.rows= ${m0.rows} != ${m1.rows}")
-            }
-
-            if (m0.cols != m1.cols) {
-                throw AssertionError("Mat size are not same m0.cols != m1.cols= ${m0.cols} != ${m1.cols}")
-            }
-
+        fun getElemInfo(m: Mat, index: Int, infoOut: MatElemInfo) {
+            require(index > -1)
+            val rowIndex = index / m.rowSize
+            val colIndex = index % m.colSize
+            infoOut.row = rowIndex
+            infoOut.col = colIndex
+            infoOut.value = m.at(rowIndex, colIndex)
         }
 
-        private fun assertSizeIs(m: Mat, size: Int) {
-            if (m.rows != size || m.cols != size) {
+        fun assertSizeIs(m: Mat, size: Int) {
+            if (m.rowSize != size || m.colSize != size) {
                 throw IllegalStateException("Matrix $size x $size needed")
             }
         }
@@ -208,3 +270,4 @@ open class Mat private constructor() : MatAbstract() {
     }
 
 }
+

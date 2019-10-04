@@ -1,75 +1,112 @@
 package nasserkhosravi.la.geometry.model
 
-import java.util.*
+import nasserkhosravi.la.geometry.OneDimIterator
+import nasserkhosravi.la.geometry.create1dMat
 
-open class Vec() : MatAbstract() {
-    companion object {
-        fun plusArray(list: ArrayList<Vec>, size: Int): Array<Double> {
-            val res = Array(size) { 0.0 }
-            list.forEachIndexed { index,it->
-                it.data.forEach {
-                    res[index] = it
-                }
-            }
-            return res
+open class Vec() : Iterable<Double> {
+    lateinit var data: DoubleArray
+
+    override fun iterator() = OneDimIterator(data)
+
+    operator fun get(v: Int): Double {
+        return data[v]
+    }
+
+    operator fun set(i: Int, value: Double) {
+        data[i] = value
+    }
+
+    operator fun timesAssign(scalar: Int) {
+        for (i in data.indices) {
+            data[i] = scalar * data[i]
         }
-
-        //sum all elements
-        fun sumUp(v1: Vec): Double {
-            //todo: use reduce
-            var result = 0.0
-            v1.data.forEach {
-                result += (it)
-            }
-            return result
-        }
-
-        fun outer(from: Vec, to: Vec): Mat {
-            val result = Array(from.data.size * to.data.size) { 0.0 }
-            var indexResult = 0
-            from.data.forEach {
-                for (i in 0 until to.data.size) {
-                    result[indexResult] = it * to[i]
-                    indexResult++
-                }
-            }
-            return Mat.create(from.data.size, to.data.size, result)
-        }
-
     }
 
     fun sumUp(): Double {
-        return sumUp(this)
+        return sum()
     }
 
     constructor(data: Array<Double>) : this() {
+        this.data = data.toDoubleArray()
+    }
+
+    constructor(data: DoubleArray) : this() {
         this.data = data
     }
 
-    override fun toString(): String {
-        return "Vec(data=${Arrays.toString(data)})"
+    constructor(vararg data: Int) : this() {
+        this.data = DoubleArray(data.size) { index -> data[index].toDouble() }
     }
 
     operator fun plus(m: Vec): Vec {
-        if (data.size != m.data.size) {
-            throw IllegalArgumentException("un homogenise size")
-        }
-        val arr = Array(data.size) { 0.0 }
-        for (i in 0 until data.size) {
-            arr[i] = data[i] + m[i]
+        require(data.size == m.data.size)
+        val arr = DoubleArray(data.size) { index ->
+            data[index] + m[index]
         }
         return Vec(arr)
     }
 
     operator fun times(m: Vec): Vec {
-        if (data.size != m.data.size) {
-            throw IllegalArgumentException("un homogenise size")
+        return multiple(m)
+    }
+
+    operator fun times(scalar: Int): Vec {
+        for (i in data.indices) {
+            data[i] = data[i] * scalar
         }
-        val arr = Array(data.size) { 0.0 }
-        for (i in 0 until data.size) {
-            arr[i] = data[i] * m[i]
+        return this
+    }
+
+    operator fun times(scalar: Double): Vec {
+        for (i in data.indices) {
+            data[i] = data[i] * scalar
         }
+        return this
+    }
+
+    operator fun div(v: Double): Vec {
+        for (i in data.indices) {
+            data[i] = data[i] / v
+        }
+        return this
+    }
+
+    fun multiple(m: Vec): Vec {
+        require(data.size == m.data.size)
+        val arr = Array(data.size) { index -> data[index] * m[index] }
         return Vec(arr)
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Vec
+
+        if (!data.contentEquals(other.data)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return data.contentHashCode()
+    }
+
+
+    companion object {
+
+        fun outer(from: Vec, to: Vec): Mat {
+            val result = DoubleArray(from.data.size * to.data.size)
+            var indexResult = 0
+            from.data.forEach {
+                for (element in to.data) {
+                    result[indexResult] = it * element
+                    indexResult++
+                }
+            }
+            return create1dMat(from.data.size, to.data.size, result)
+        }
+    }
+
 }
+

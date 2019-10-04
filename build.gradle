@@ -14,7 +14,11 @@ repositories {
 
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
+    
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+//    implementation group: 'org.ejml', name: 'ejml-all', version: '0.38'
+    implementation group: 'org.la4j', name: 'la4j', version: '0.6.0'
+
 }
 compileKotlin {
     kotlinOptions {
